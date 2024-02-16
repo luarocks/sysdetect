@@ -1,8 +1,9 @@
 rockspec_format = "3.0"
 package = "sysdetect"
-version = "dev-1"
+version = "0.1.0-1"
 source = {
-   url = "git+https://github.com/luarocks/sysdetect"
+   url = "git+https://github.com/luarocks/sysdetect",
+   tag = "0.1.0",
 }
 description = {
    summary = "detect the architecture and OS without forking subprocesses",
