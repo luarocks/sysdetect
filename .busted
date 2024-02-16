@@ -1,0 +1,7 @@
+return {
+   default = {
+      output = "htest",
+      verbose = true,
+      ["auto-insulate"] = false
+   }
+}
