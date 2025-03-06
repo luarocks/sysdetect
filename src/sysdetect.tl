@@ -1,7 +1,7 @@
 -- Detect the operating system and architecture without forking a subprocess.
 --
--- We are not going for an exhaustive list of every historical system here,
--- but we're aiming to cover every platform where LuaRocks is known to run.
+-- We are not going for exhaustive list of every historical system here,
+-- but aiming to cover every platform where LuaRocks is known to run.
 -- If your system is not detected, patches are welcome!
 
 local record sysdetect
@@ -75,7 +75,7 @@ local function read_int8(fd: FILE): integer
 end
 
 local function bytes2number(s: string, endian: Endian): integer
-   local r = 0
+   local r: integer = 0
    if endian == "little" then
       for i = #s, 1, -1 do
          r = r*256 + s:byte(i,i)
@@ -92,7 +92,7 @@ local function read(fd: FILE, bytes: integer, endian: Endian): integer
    if io.type(fd) == "closed file" then
       return nil
    end
-   local s = fd:read(bytes)
+   local s: string = fd:read(bytes)
    if not s
       then fd:close()
       return nil
@@ -127,6 +127,29 @@ local record ElfHeader
    e_shstrndx: integer
 end
 
+local record ElfSection
+   sh_name_off: integer
+   sh_type: integer
+   sh_flags: integer
+   sh_addr: integer
+   sh_offset: integer
+   sh_size: integer
+   sh_link: integer
+   sh_info: integer
+
+   name: string
+   namesz: integer
+   namedata: string
+   descsz: integer
+   descdata: string
+   type: integer
+end
+
+local endians: {integer:Endian} = {
+   [0x01] = "little",
+   [0x02] = "big",
+}
+
 local e_osabi: {integer:System} = {
    [0x00] = "sysv",
    [0x01] = "hpux",
@@ -160,34 +183,11 @@ local e_machines: {integer:Processor} = {
    [0x9026] = "alpha",
 }
 
-local endians: {integer:Endian} = {
-   [0x01] = "little",
-   [0x02] = "big",
-}
-
 local SHT_NOTE <const> = 7
 
-local record ElfSection
-   sh_name_off: integer
-   sh_type: integer
-   sh_flags: integer
-   sh_addr: integer
-   sh_offset: integer
-   sh_size: integer
-   sh_link: integer
-   sh_info: integer
-
-   name: string
-   namesz: integer
-   namedata: string
-   descsz: integer
-   descdata: string
-   type: integer
-end
-
-local function read_elf_section_headers(fd: FILE, hdr: ElfHeader): {string:ElfSection}
+local function read_elf_section_headers(fd: FILE, hdr: ElfHeader): {string: ElfSection}
    local endian = endians[hdr.endian]
-   local word = hdr.word
+   local word: integer = hdr.word
 
    local strtab_offset: integer
    local sections: {string:ElfSection} = {}
@@ -332,7 +332,7 @@ local function read_elf_header(fd: FILE): ElfHeader, Processor
    return hdr, processor
 end
 
-local function detect_elf(fd: FILE): (System, Processor)
+local function detect_elf(fd: FILE): System, Processor
    local hdr, processor = read_elf_header(fd)
    if not hdr then
       return nil
@@ -364,7 +364,7 @@ local mach_b32: {integer:Processor} = {
    [0] = "ppc",
 }
 
-local function detect_mach(magic: string, fd: FILE): (System, Processor)
+local function detect_mach(magic: string, fd: FILE): System, Processor
    if not magic then
       return nil
    end
@@ -398,7 +398,7 @@ end
 -- @section PE (Windows)
 --------------------------------------------------------------------------------
 
-local pe_machine: {integer:Processor} = {
+local pe_machine = {
     [0x8664] = "x86_64",
     [0x01c0] = "arm",
     [0x01c4] = "armv7l",
@@ -406,7 +406,7 @@ local pe_machine: {integer:Processor} = {
     [0x014c] = "x86",
 }
 
-local function detect_pe(fd: FILE): (System, Processor)
+local function detect_pe(fd: FILE): System, Processor
    fd:seek("set", 60)                 -- position of PE header position
    local peoffset = read_int32le(fd)  -- read position of PE header
    if not peoffset then
@@ -415,7 +415,7 @@ local function detect_pe(fd: FILE): (System, Processor)
    local system: System = "windows"
    fd:seek("set", peoffset + 4)       -- move to position of Machine section
    local machine = read(fd, 2, "little")
-   local processor = pe_machine[machine]
+   local processor: Processor = pe_machine[machine]
 
    local rdata_pos_s = fd:read(736):match(".rdata%z%z............(....)")
    if rdata_pos_s then
@@ -434,8 +434,7 @@ end
 -- @section API
 --------------------------------------------------------------------------------
 
-function sysdetect.detect_file(file: string): (System, Processor)
-   assert(type(file) == "string")
+function sysdetect.detect_file(file: string): System, Processor
    local fd = io.open(file, "rb")
    if not fd then
       return nil
@@ -453,7 +452,7 @@ end
 local cache_system: System
 local cache_processor: Processor
 
-function sysdetect.detect(input_file: string): (System, Processor)
+function sysdetect.detect(input_file: string): System, Processor
    local dirsep = package.config:sub(1,1)
    local files: {string}
 
